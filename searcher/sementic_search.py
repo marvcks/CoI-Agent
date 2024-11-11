@@ -32,13 +32,17 @@ def extract(text, type):
 
 
 async def fetch(url):
-    await asyncio.sleep(1) 
     try:
         timeout = aiohttp.ClientTimeout(total=120)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                          'AppleWebKit/537.36 (KHTML, like Gecko) '
+                          'Chrome/87.0.4280.88 Safari/537.36'
+        }  # Mimic a common browser's User-Agent
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url) as response:
+            async with session.get(url, headers=headers, allow_redirects=True) as response:
                 if response.status == 200:
-                    content = await response.read()  # Read the response content as bytes
+                    content = await response.read()
                     return content
                 else:
                     print(f"Failed to fetch the URL: {url} with status code: {response.status}")
