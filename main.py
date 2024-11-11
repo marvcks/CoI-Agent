@@ -4,6 +4,9 @@ import json
 import argparse
 import yaml
 import os
+import nest_asyncio
+
+nest_asyncio.apply()
 with open('config.yaml', 'r') as file:
     config = yaml.safe_load(file)
 for key, value in config.items():

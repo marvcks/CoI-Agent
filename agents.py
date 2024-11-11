@@ -296,7 +296,7 @@ class DeepResearchAgent:
         current_title = paper.title
         current_abstract = paper.abstract
 
-        # search before
+        # Forward search: search future papers (citations)
         while len(idea_chain)<self.max_chain_length:
             rerank_query = f"{self.topic} {current_title} {current_abstract}"
             citation_paper = await self.reader.search_related_paper_async(current_title,need_reference=False,rerank_query=rerank_query,llm=self.llm,paper_list=idea_papers)
@@ -326,7 +326,8 @@ class DeepResearchAgent:
 
         current_title = paper.title
         current_abstract = paper.abstract
-        # search after
+
+        # Backward search: search past papers (references)
         while len(idea_chain) < self.max_chain_length and len(references) > 0:
             article = None
             print(f"The references find:{references}")

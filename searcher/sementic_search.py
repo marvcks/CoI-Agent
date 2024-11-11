@@ -111,7 +111,7 @@ class SementicSearcher:
                 response_data = response.json()
                 return response_data
             elif response.status_code == 429:
-                await asyncio.sleep(0.5)  
+                await asyncio.sleep(5)  
                 print(f"Request failed with status code {response.status_code}: begin to retry")
                 return await self.search_papers_async(query, limit, offset, fields, publicationDate, minCitationCount, year, publicationTypes, fieldsOfStudy)
             else:
