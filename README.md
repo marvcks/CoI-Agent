@@ -94,6 +94,9 @@ cd grobid
 python main.py --topic {your research topic}
 ```
 
+## 📖 Evaluation Data
+All evaluation data as well CoI generated results can be found in `dataset` fold.
+
 ## :black_nib: Citation
 
 If you find our work helpful for your research, please consider starring the repo and citing our work.   
