@@ -53,7 +53,8 @@ class base_llm:
 class openai_llm(base_llm):
     def __init__(self,model = "gpt4o-0513") -> None:
         super().__init__()
-        is_azure = os.environ.get("is_azure", True)
+        # is_azure = os.environ.get("is_azure", False)
+        is_azure = False
         self.model = model
 
         if is_azure:

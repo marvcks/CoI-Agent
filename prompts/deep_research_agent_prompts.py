@@ -1,6 +1,7 @@
 use_entities = True
 
-def get_deep_search_query_prompt(topic = None,query = None) -> str:
+
+def get_deep_search_query_prompt(topic=None, query=None) -> str:
     if topic and query:
         prompt = f"""
     You are a master of literature searcher, tasked with finding relevant research literatures based on a specific topic and idea.
@@ -9,7 +10,7 @@ def get_deep_search_query_prompt(topic = None,query = None) -> str:
     And we have the following idea: {query}.
 
     Please provide the literature search queries you would use to search for papers related to the topic and idea.
-        """
+    """
     elif topic:
         prompt = f"""
     You are a master of literature searcher, tasked with finding relevant research literatures based on a specific topic.
@@ -27,29 +28,28 @@ def get_deep_search_query_prompt(topic = None,query = None) -> str:
     Please provide the literature search querie syou would use to search for papers related to the paper idea.
     """
     output_format = """
-    Each query should be a string and should be enclosed in double quotes.It is best to output one query representing the whole and other queries representing other different aspects of the whole.(no more than 5 queries)
+    Each query should be a string and should be enclosed in double quotes.
+    It is best to output one query representing the whole and other queries representing other different aspects of the whole.(no more than 5 queries)
 
-    Output strictly in the following format:
-    <queries>["query1", "query2", ...]</queries>
+    Output strictly in the following format: <queries>["query1", "query2", ...]</queries>
         
     For example:
     <queries>["Reducing reliance on large-scale annotated data and closed-source models for planning in QA tasks","Automatic agent learning for QA","QA task planning with minimal human intervention", "Few-shot learning for QA"]</queries>
 """
     return prompt + output_format
 
-def get_deep_check_idea_novel_search_query_prompt(idea,topic: str) -> str:
+
+def get_deep_check_idea_novel_search_query_prompt(idea, topic: str) -> str:
     prompt = f"""
 You are a scientific research expert.
 Your task is to check whether the target idea is similar to existing research.
 
 The target idea you need to check is as follows:{idea}
-
 The topic you are studying is: {topic}
 
-Please provide multiple search queries to find relevant papers that can help you determine whether the idea is novel(no more than 3 queries).
+Please provide multiple search queries to find relevant papers that can help you determine whether the idea is novel (no more than 3 queries).
 
-Output strictly in the following format:
-<queries>["query1", "query2", "query3"]</queries>
+Output strictly in the following format: <queries>["query1", "query2", "query3"]</queries>
 
 For example:
 <queries>["Reducing reliance on large-scale annotated data and closed-source models for planning in QA tasks","Automatic agent learning for QA","QA task planning with minimal human intervention"]</queries>
@@ -57,22 +57,20 @@ For example:
     return prompt
 
 
-
-
-def get_deep_rewrite_query_prompt(failed_query,topic):
+def get_deep_rewrite_query_prompt(failed_query, topic):
     prompt = f"""
 You are a master of search engine query writing. We want to utilize the literature search engine to find relevant paper.
 
-The queries that have been used so far are as follows: {failed_query}. Unfortunately, no satisfactory answers were found. Please rewrite a query to help us locate the literature we need (do not repeat the failed query).
+The queries that have been used so far are as follows: {failed_query}. 
+Unfortunately, no satisfactory answers were found. Please rewrite a query to help us locate the literature we need (do not repeat the failed query).
 
 The topic you are studying is: {topic}.
 Please provide a new search query to find the relevant papers. 
 
 Try to make your query more concise and general so that it can be used to search for a wide range of papers.
 If you failed more than 5 times, you can use a short query(no more than 5 words) to search for the paper.
-Please output strictly in the following format:
-<query>{{new query}}</query>
 
+Please output strictly in the following format: <query>{{new query}}</query>
 For example:
 <query>Reducing reliance on large-scale annotated data and closed-source models for planning in QA tasks</query>
 """
@@ -81,7 +79,8 @@ For example:
 
 def get_deep_reference_prompt(paper_content: str,topic) -> str:
     prompt = f"""
-You are a scientific research expert, tasked with extracting and summarizing information from provided paper content relevant to the topic: {topic}. Your deliverables will include pertinent references, extracted entities, a detailed summary, and the experimental design.
+You are a scientific research expert, tasked with extracting and summarizing information from provided paper content relevant to the topic: {topic}. 
+Your deliverables will include pertinent references, extracted entities, a detailed summary, and the experimental design.
 
 The topic you are studying is: {topic}. (Ensure that the references are pertinent to this topic.)
 
@@ -90,7 +89,6 @@ Entities
 1. Identify unique entities mentioned in the paper, such as model names, datasets, metrics, and specialized terminology.
 2. Format the entities with a name followed by a brief description.
 3. Ensure all entities are relevant to the specified topic ([topic]).
-
 
 Summary Idea:
 1. Background: Elaborate on the task's context and previous work, outlining the starting point of this paper.
@@ -111,12 +109,11 @@ Relevance Criteria:
 2. Task Relevance: References should address the same task, even if methods differ, better have the same topic {topic}.
 3. Baseline Relevance: References should serve as baselines for the methods discussed in the paper.
 4. Output Format: Provide references without author names or publication years, formatted as titles only.
-5. Specific paper titles will be placed between <References></References>. Based on the precise citation location and the corresponding ref_id in the paper, you need to infer the specific title of your output relevant references.
-
+5. Specific paper titles will be placed between <References></References>. 
+   Based on the precise citation location and the corresponding ref_id in the paper, you need to infer the specific title of your output relevant references.
 
 The paper content is as follows: 
 {paper_content}
-
 
 Please provide the entities, summary idea, experimental design, and the three most relevant references (Sort by relevance, with priority given to new ones with the same level of relevance, do not reference the original paper.) based on the paper's content.
 Note: Ensure the references are pertinent to the topic you are studying: {topic}. If there are no relevant references, output <references>[]</references>.
@@ -130,22 +127,24 @@ Now please output strictly in the following format:
     return prompt
 
 
-def get_deep_trend_idea_chains_prompt(idea_chains,entities,topic) -> str:
-    entities = f"""
-Here are the entities you need to know: {entities}
-""" if use_entities else ""
+def get_deep_trend_idea_chains_prompt(idea_chains, entities, topic) -> str:
+    entities = f"Here are the entities you need to know: {entities}" if use_entities else ""
     prompt = f"""
-You are a scientific research expert tasked with summarizing the historical progression of research related to our current topic, based on the literature we have reviewed.
+You are a scientific research expert tasked with summarizing the historical progression of research related to our current topic, 
+based on the literature we have reviewed.
 
 {entities}
 
 The topic you are studying is: {topic}
-
 The literature from early to late: {idea_chains}
 
 Your objective is to outline the historical evolution of the research in light of current trends. Please follow these requirements:
-Analysis of Published Viewpoints: Examine the progression of ideas across the identified papers. Detail how each paper transitions to the next—for instance, how Paper 0 leads to Paper 1, and so forth. Focus on understanding how Paper 1 builds upon the concepts in Paper 0. Elaborate on specific advancements made, including proposed modules, their designs, and the rationale behind their effectiveness in addressing previous challenges. Apply this analytical approach to each paper in the sequence.
-
+Analysis of Published Viewpoints: Examine the progression of ideas across the identified papers. 
+Detail how each paper transitions to the next—for instance, how Paper 0 leads to Paper 1, and so forth. 
+Focus on understanding how Paper 1 builds upon the concepts in Paper 0. 
+Elaborate on specific advancements made, including proposed modules, their designs, 
+and the rationale behind their effectiveness in addressing previous challenges. 
+Apply this analytical approach to each paper in the sequence.
 
 Please present your findings in the following format:
 <trend> {{The research trend you summarized based on the past work}} </trend>
@@ -166,26 +165,25 @@ Abstract: {target_paper_abstract}
 
 The topic is: {topic}
 
-if the paper title and abstract are related to the topic, output <relevant>1</relevant>, otherwise output <relevant>0</relevant>. As long as you feel that this article has reference value for your question, you can use it to help you study the topic, it does not need to be completely consistent in topic.
+If the paper title and abstract are related to the topic, output <relevant>1</relevant>, otherwise output <relevant>0</relevant>. 
+As long as you feel that this article has reference value for your question, 
+you can use it to help you study the topic, it does not need to be completely consistent in topic.
 
 Please output strictly in the following format(no extra content):
 <think>{{your thinking steps}}</think>
 <relevant>{{0/1}}</relevant>
-    """
+"""
     return prompt
 
 
 def get_deep_generate_future_direciton_prompt(idea_chains,trend,topic,entities) -> str:
-    entities = f"""
-Here are the entities you need to know: {entities}
-""" if use_entities else ""
+    entities = f"Here are the entities you need to know: {entities}" if use_entities else ""
     prompt = f"""
 You are a scientific research expert tasked with proposing future research directions based on the literature we have reviewed.
 
 {entities}
 
 The topic you are studying is: {topic}
-
 The literature you have studied is as follows:
 {idea_chains}
 
@@ -327,6 +325,7 @@ Please output strictly in the following format:
 """
     return prompt
 
+
 def get_deep_check_idea_novel_prompt(idea,papers):
     papers_content = ""
     for i,paper in enumerate(papers):
@@ -358,7 +357,6 @@ For example:
 <similar_paper_id>0</similar_paper_id>
 """
     return prompt
-
 
 
 def get_deep_generate_experiment_prompt(idea,experiments,entities) -> str:
@@ -421,7 +419,6 @@ Please output strictly in the following format:
     return prompt
 
 
-
 def get_deep_refine_experiment_search_query_prompt(experiment,suggestions):
     prompt = f"""
 You are a research expert tasked with refining and improving an experimental plan based on the feedback received.
@@ -444,6 +441,7 @@ For example:
 <query>Reducing reliance on large-scale annotated data and closed-source models for planning in QA tasks</query>
 """
     return prompt
+
 
 def get_deep_paper_info_prompt_for_refine_experiment(paper,experiment,suggestions) -> str:
     prompt = f"""

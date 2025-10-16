@@ -2,7 +2,7 @@ import json
 import time
 import asyncio
 import os
-from searcher import Result,SementicSearcher
+from searcher import Result, SementicSearcher
 from LLM import openai_llm
 from prompts import *
 from utils import extract
@@ -38,15 +38,17 @@ async def judge_idea(i,j,idea0,idea1,topic,llm):
     return i,j,novelty,relevance,significance,clarity,feasibility,effectiveness
 
 
-
 class ReviewAgent:
-    def __init__(self,save_file = "saves/",llm = None,cheap_llm = None,publicationData = None,**kwargs) -> None:
+    def __init__(
+        self, save_file = "saves/", llm=None, cheap_llm=None, publicationData=None, **kwargs) -> None:
+
         self.paper_save_file = os.path.join(save_file,"review_papers")
         self.log_save_file = os.path.join(save_file,"review_logs")
         if not os.path.exists(self.paper_save_file):
             os.makedirs(self.paper_save_file)
         if not os.path.exists(self.log_save_file):
             os.makedirs(self.log_save_file)
+
         self.llm = llm
         self.cheap_llm = cheap_llm
         self.reader = SementicSearcher(self.paper_save_file)
@@ -58,36 +60,38 @@ class ReviewAgent:
         self.check_novel_results = []
         self.publicationData = publicationData
 
-    def wrap_messages(self,prompt):
-        return [{"role":"user","content":prompt}]
+    def wrap_messages(self, prompt):
+        return [{"role":"user", "content":prompt}]
 
-    async def get_openai_response_async(self,messages):
+    async def get_openai_response_async(self, messages):
         return await self.llm.response_async(messages)
     
-    async def get_cheap_openai_response_async(self,messages):
+    async def get_cheap_openai_response_async(self, messages):
         return await self.cheap_llm.response_async(messages)
 
-    async def get_search_query(self,idea,topic):
+    async def get_search_query(self, idea, topic):
         prompt = get_review_search_related_paper_prompt(idea,topic)
         messages = self.wrap_messages(prompt)
         response = await self.get_openai_response_async(messages)
-        search_query = extract(response,"queries")
+        search_query = extract(response, "queries")
         try:
             search_query = json.loads(search_query)
         except:
             search_query = []
         return search_query
     
-    async def get_suggestions_from_papers(self,papers,topic,idea):
+    async def get_suggestions_from_papers(self, papers, topic, idea):
         paper_content = ""
-        for i,paper in enumerate(papers):
+        for i, paper in enumerate(papers):
             paper_content += f"{i}.Title: {paper.title}, Abstract: {paper.abstract}\n"
 
-        prompt = get_review_suggestions_from_papers_prompt(idea,topic,paper_content)
+        prompt = get_review_suggestions_from_papers_prompt(idea, topic, paper_content)
         messages = self.wrap_messages(prompt)
         response = await self.get_openai_response_async(messages)
         suggestions = extract(response,"suggestions")
+        
         print(f"successfully get suggestions from paper {paper.title}")
+
         return suggestions
 
 
@@ -104,14 +108,19 @@ class ReviewAgent:
 
 
 class DeepResearchAgent:
-    def __init__(self,save_file = "saves/",llm = None,cheap_llm=None,publicationData = None,ban_paper = [],**kwargs) -> None:
+    def __init__(
+        self, save_file="saves/", llm=None, cheap_llm=None,
+        publicationData=None, ban_paper=[], **kwargs
+        ) -> None:
         self.paper_save_file = os.path.join(save_file,"deep_papers")
         self.log_save_file = os.path.join(save_file,"deep_logs")
         if not os.path.exists(self.paper_save_file):
             os.makedirs(self.paper_save_file)
         if not os.path.exists(self.log_save_file):
             os.makedirs(self.log_save_file)
-        self.reader = SementicSearcher(save_file = self.paper_save_file,ban_paper = ban_paper)
+
+        self.reader = SementicSearcher(save_file=self.paper_save_file, ban_paper=ban_paper)
+
         self.begin_time = time.time()
         self.llm = llm
         self.cheap_llm = cheap_llm
@@ -124,7 +133,6 @@ class DeepResearchAgent:
         self.check_novel_results = []
         self.score_results = []
         self.topic =None
-
 
         self.publicationData = publicationData
         self.improve_cnt = kwargs.get("improve_cnt",1)
@@ -141,22 +149,24 @@ class DeepResearchAgent:
     async def get_cheap_openai_response_async(self,messages):
         return await self.cheap_llm.response_async(messages,max_tokens = 16000)
 
-    async def get_search_query(self,topic = None,query=None):
-        prompt = get_deep_search_query_prompt(topic,query)
+    async def get_search_query(self, topic=None, query=None):
+        prompt = get_deep_search_query_prompt(topic, query)
         messages = self.wrap_messages(prompt)
         response = await self.get_openai_response_async(messages)
-        search_query = extract(response,"queries")
+        search_query = extract(response, "queries")
+
         try:
             search_query = json.loads(search_query)
-            self.search_qeuries.append({"query":query,"search_query":search_query})
-            with open(os.path.join(self.log_save_file,"search_queries.json"),"w") as f:
-                json.dump(self.search_qeuries,f)
+            self.search_qeuries.append({"query":query, "search_query":search_query})
+            with open(os.path.join(self.log_save_file, "search_queries.json"),"w") as f:
+                json.dump(self.search_qeuries, f)
         except:
             search_query = [query]
         return search_query
 
-    async def generate_idea_with_chain(self,topic,anchor_paper_path = None):
+    async def generate_idea_with_chain(self, topic, anchor_paper_path=None):
         self.topic = topic
+
         if anchor_paper_path:
             article = self.reader.read_arxiv_from_path(anchor_paper_path)
             title,abstract,pub_data = article["title"],article["abstract"],article["pub_date"]
@@ -170,7 +180,14 @@ class DeepResearchAgent:
                 current_papers = []
                 cnt = 0
                 while len(current_papers) == 0 and cnt < 10:
-                    paper = await self.reader.search_async(query,1,paper_list=self.read_papers,llm=self.llm,rerank_query=f"{topic}",publicationDate=self.publicationData)
+
+                    paper = await self.reader.search_async(
+                        query, 1,
+                        paper_list=self.read_papers, 
+                        llm=self.llm, rerank_query=f"{topic}",
+                        publicationDate=self.publicationData
+                        )
+
                     if paper and len(paper) > 0 and paper[0]:
                         self.read_papers.add(paper[0].title)
                         current_papers.append(paper[0])
@@ -182,23 +199,27 @@ class DeepResearchAgent:
                         new_query = extract(new_query,"query")
                         print(f"Failed to search papers for {query}, regenerating query {new_query} to search papers.")
                         query = new_query
+                    
                     cnt += 1
+
                 papers.extend(current_papers)
                 if len(papers) >= self.max_chain_numbers:
                     break
 
             if len(papers) == 0:
-                print(f"failed to generate idea {topic}")
+                print(f"failed to generate idea {topic} for papers.")
                 return None,None,None,None,None,None,None,None,None
 
         tasks = [self.deep_research_paper_with_chain(paper) for paper in papers]
         results = await asyncio.gather(*tasks)
         results = [result for result in results if result]
         if len(results) ==0:
-            print(f"failed to generate idea {topic}")
+            print(f"failed to generate idea {topic} for no results.")
             return None,None,None,None,None,None,None,None,None
 
-        ideas,idea_chains,experiments,entities,trends,futures,humans,years = [[result[i] for result in results] for i in range(8)]
+        ideas,idea_chains,experiments,entities,trends,futures,humans,years = [
+            [result[i] for result in results] for i in range(8)
+            ]
 
         tasks = []
         for i,idea_1 in enumerate(ideas):
@@ -208,7 +229,8 @@ class DeepResearchAgent:
         results = await asyncio.gather(*tasks)
         elo_scores = [0 for _ in range(len(ideas))]
         elo_selected = 0
-        def change_winner_to_score(winner,score_1,score_2):
+
+        def change_winner_to_score(winner, score_1, score_2):
             try:
                 winner = int(winner)
             except:
@@ -218,6 +240,7 @@ class DeepResearchAgent:
             if winner == 2:
                 return score_1+0.5,score_2+0.5
             return score_1,score_2+1
+
         for result in results:
             i,j,novelty,relevance,significance,clarity,feasibility,effectiveness = result
             for dimension in [novelty,relevance,significance,clarity,feasibility,effectiveness]:
@@ -235,6 +258,7 @@ class DeepResearchAgent:
             json.dump({"ideas":ideas,"experiments":experiments,"entities":entities},f)
 
         print(f"successfully generated idea")
+
         return idea,experiment,entities,idea_chain,ideas,trend,future,human,year
     
     async def get_paper_idea_experiment_references_info(self,paper:Result):
@@ -262,7 +286,6 @@ class DeepResearchAgent:
         references = extract(response,"references")
         return idea,experiment,entities,references
 
-    
     async def get_paper_info_for_refine_experiment(self,paper,experiment,suggestions):
         article = paper.article
         if not article:
@@ -274,7 +297,6 @@ class DeepResearchAgent:
         info = extract(response,"info")
         return {"title":paper.title,"info":info}
 
-    
     async def deep_research_paper_with_chain(self,paper:Result): 
         print(f"begin to deep research paper {paper.title}")
         article = paper.article
@@ -567,18 +589,34 @@ class DeepResearchAgent:
 
 
 if __name__ == "__main__":
-    topic = ""
+    topic = "machine learning for deep potential energy surface."
 
     publicationData=":2022-12-01"
     review_agent = ReviewAgent()
     deep_research_agent = DeepResearchAgent()
 
     print(f"begin to generate idea and experiment of topic {topic}")
-    idea,related_experiments,entities,idea_chain,ideas,trend,future,human,year=  asyncio.run(deep_research_agent.generate_idea_with_chain(topic))
+
+    idea, related_experiments, entities, idea_chain, ideas, trend, future, human, year = asyncio.run(
+        deep_research_agent.generate_idea_with_chain(topic)
+        )
     experiment = asyncio.run(deep_research_agent.generate_experiment(idea,related_experiments,entities))
     experiment = asyncio.run(deep_research_agent.improve_experiment(review_agent,idea,experiment,entities))
     print(f"succeed to generate idea and experiment of topic {topic}")
-    res = {"idea":idea,"experiment":experiment,"related_experiments":related_experiments,"entities":entities,"idea_chain":idea_chain,"ideas":ideas,"trend":trend,"future":future,"year":year,"human":human}
+
+    res = {
+        "idea":idea,
+        "experiment":experiment,
+        "related_experiments":related_experiments,
+        "entities":entities,
+        "idea_chain":idea_chain,
+        "ideas":ideas,
+        "trend":trend,
+        "future":future,
+        "year":year,
+        "human":human
+        }
+
     with open("result.json","w") as f:
         json.dump(res,f)
 

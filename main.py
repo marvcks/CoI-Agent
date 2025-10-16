@@ -25,8 +25,7 @@ if __name__ == '__main__':
     argparser.add_argument("--improve_cnt",type=int,default= 1,help="experiment refine count")
     argparser.add_argument("--max_chain_length t",type=int,default=5,help="max chain length")
     argparser.add_argument("--min_chain_length",type=int,default=3,help="min chain length")
-    argparser.add_argument("--max_chain_numbers",type=int,default=1,help="max chain numbers")
-    
+    argparser.add_argument("--max_chain_numbers",type=int,default=1,help="max chain numbers")    
     args = argparser.parse_args()
 
     main_llm , cheap_llm = get_llms()
@@ -34,18 +33,32 @@ if __name__ == '__main__':
     topic = args.topic
     anchor_paper_path = args.anchor_paper_path
 
-
     review_agent = ReviewAgent(save_file=args.save_file,llm=main_llm,cheap_llm=cheap_llm)
     deep_research_agent = DeepResearchAgent(llm=main_llm,cheap_llm=cheap_llm,**vars(args))
 
     print(f"begin to generate idea and experiment of topic {topic}")
-    idea,related_experiments,entities,idea_chain,ideas,trend,future,human,year=  asyncio.run(deep_research_agent.generate_idea_with_chain(topic,anchor_paper_path))
+
+    idea,related_experiments,entities,idea_chain,ideas,trend,future,human,year =  asyncio.run(
+        deep_research_agent.generate_idea_with_chain(topic,anchor_paper_path)
+        )
     experiment = asyncio.run(deep_research_agent.generate_experiment(idea,related_experiments,entities))
 
     for i in range(args.improve_cnt):
         experiment = asyncio.run(deep_research_agent.improve_experiment(review_agent,idea,experiment,entities))
         
     print(f"succeed to generate idea and experiment of topic {topic}")
-    res = {"idea":idea,"experiment":experiment,"related_experiments":related_experiments,"entities":entities,"idea_chain":idea_chain,"ideas":ideas,"trend":trend,"future":future,"year":year,"human":human}
+
+    res = {
+        "idea":idea,
+        "experiment":experiment,
+        "related_experiments":related_experiments,
+        "entities":entities,
+        "idea_chain":idea_chain,
+        "ideas":ideas,
+        "trend":trend,
+        "future":future,
+        "year":year,
+        "human":human
+        }
     with open("result.json","w") as f:
         json.dump(res,f)

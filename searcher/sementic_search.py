@@ -43,6 +43,7 @@ async def fetch(url):
             async with session.get(url, headers=headers, allow_redirects=True) as response:
                 if response.status == 200:
                     content = await response.read()
+                    print(f"Successfully fetched the URL: {url}")
                     return content
                 else:
                     print(f"Failed to fetch the URL: {url} with status code: {response.status}")
@@ -53,7 +54,7 @@ async def fetch(url):
 
     
 class Result:
-    def __init__(self,title="",abstract="",article=None,citations_conut = 0,year = None) -> None:
+    def __init__(self, title="", abstract="", article=None, citations_conut=0, year=None) -> None:
         self.title = title
         self.abstract = abstract
         self.article = article
@@ -63,10 +64,25 @@ class Result:
 
 # Define the API endpoint URL
 
-semantic_fields = ["title", "abstract", "year", "authors.name", "authors.paperCount", "authors.citationCount","authors.hIndex","url","referenceCount","citationCount","influentialCitationCount","isOpenAccess","openAccessPdf","fieldsOfStudy","s2FieldsOfStudy","embedding.specter_v1","embedding.specter_v2","publicationDate","citations"]
+semantic_fields = [
+    "title", "abstract", "year", 
+    "authors.name", "authors.paperCount", "authors.citationCount","authors.hIndex",
+    "url", "referenceCount", "citationCount", "influentialCitationCount",
+    "isOpenAccess", "openAccessPdf", "fieldsOfStudy", "s2FieldsOfStudy",
+    "embedding.specter_v1","embedding.specter_v2",
+    "publicationDate","citations"
+    ]
 
 
-fieldsOfStudy = ["Computer Science","Medicine","Chemistry","Biology","Materials Science","Physics","Geology","Art","History","Geography","Sociology","Business","Political Science","Philosophy","Art","Literature","Music","Economics","Mathematics","Engineering","Environmental Science","Agricultural and Food Sciences","Education","Law","Linguistics"]
+fieldsOfStudy = [
+    "Computer Science", "Medicine", "Chemistry", "Biology",
+    "Materials Science", "Physics", "Geology", "Art", 
+    "History", "Geography", "Sociology", "Business",
+    "Political Science", "Philosophy", "Art", "Literature",
+    "Music","Economics","Mathematics","Engineering",
+    "Environmental Science", "Agricultural and Food Sciences",
+    "Education", "Law", "Linguistics"
+    ]
 
 # citations.paperId, citations.title, citations.year, citations.authors.name, citations.authors.paperCount, citations.authors.citationCount, citations.authors.hIndex, citations.url, citations.referenceCount, citations.citationCount, citations.influentialCitationCount, citations.isOpenAccess, citations.openAccessPdf, citations.fieldsOfStudy, citations.s2FieldsOfStudy, citations.publicationDate
 
@@ -81,13 +97,23 @@ def process_fields(fields):
 
 
 class SementicSearcher:
-    def __init__(self, save_file = "papers/",ban_paper = []) -> None:
+    def __init__(self, save_file="papers/", ban_paper=[]) -> None:
         self.save_file = save_file
         self.ban_paper = ban_paper
     
-    async def search_papers_async(self, query, limit=5, offset=0, fields=["title", "paperId", "abstract", "isOpenAccess", 'openAccessPdf', "year","publicationDate","citations.title","citations.abstract","citations.isOpenAccess","citations.openAccessPdf","citations.citationCount","citationCount","citations.year"],
-                            publicationDate=None, minCitationCount=0, year=None, 
-                            publicationTypes=None, fieldsOfStudy=None):
+    async def search_papers_async(
+        self, query, limit=5, offset=0, 
+        fields=[
+            "title", "paperId", "abstract", 
+            "isOpenAccess", 'openAccessPdf', 
+            "year","publicationDate","citations.title",
+            "citations.abstract","citations.isOpenAccess",
+            "citations.openAccessPdf","citations.citationCount",
+            "citationCount","citations.year"
+            ],
+            publicationDate=None, minCitationCount=0, year=None, 
+            publicationTypes=None, fieldsOfStudy=None
+            ):
         url = 'https://api.semanticscholar.org/graph/v1/paper/search'
         fields = process_fields(fields) if isinstance(fields, list) else fields
         
@@ -103,7 +129,9 @@ class SementicSearcher:
             'publicationTypes': publicationTypes,
             'fieldsOfStudy': fieldsOfStudy
         }
+
         await asyncio.sleep(0.5)
+
         try:
             filtered_query_params = {key: value for key, value in query_params.items() if value is not None}
             # Load the API key from the configuration file
@@ -113,6 +141,7 @@ class SementicSearcher:
 
             if response.status_code == 200:
                 response_data = response.json()
+                print(f"Search successful for query: {query}")
                 return response_data
             elif response.status_code == 429:
                 await asyncio.sleep(5)  
@@ -145,28 +174,33 @@ class SementicSearcher:
         scores = cos_sim.flatten()
         return scores.tolist()
     
-    def rerank_papers(self, query_embedding, paper_list,llm):
+    def rerank_papers(self, query_embedding, paper_list, llm):
         if len(paper_list) == 0:
             return []
         paper_list = [paper for paper in paper_list if paper]
         paper_contents = []
         for paper in paper_list:
-            paper_content = f"""
-Title: {paper['title']}
-Abstract: {paper['abstract']}
-"""
+            paper_content = f"Title: {paper['title']}\nAbstract: {paper['abstract']}"
             paper_contents.append(paper_content)
         paper_contents_embbeding = llm.get_embbeding(paper_contents)
         paper_contents_embbeding = np.array(paper_contents_embbeding)
-        scores = self.cal_cosine_similarity_matric(query_embedding,paper_contents_embbeding)
+        scores = self.cal_cosine_similarity_matric(query_embedding, paper_contents_embbeding)
             
         # 根据score对paper_list进行排序 
-        paper_list = sorted(zip(paper_list,scores),key = lambda x: x[1],reverse = True)
+        paper_list = sorted(zip(paper_list,scores), key = lambda x: x[1],reverse = True)
         paper_list = [paper[0] for paper in paper_list]
         return paper_list
         
-    
-    async def search_async(self,query,max_results = 5 ,paper_list = None ,rerank_query = None,llm = None,year = None,publicationDate = None,need_download = True,fields = ["title", "paperId", "abstract", "isOpenAccess", 'openAccessPdf', "year","publicationDate","citationCount"]):
+    async def search_async(
+        self, query, max_results = 5,
+        paper_list=None , rerank_query=None, llm=None,
+        year=None, publicationDate=None, need_download=True,
+        fields=[
+            "title", "paperId", "abstract",
+            "isOpenAccess", 'openAccessPdf', "year",
+            "publicationDate","citationCount"
+            ]
+        ):
         
         # Read the papers that have been read
         readed_papers = []
@@ -181,7 +215,13 @@ Abstract: {paper['abstract']}
                 readed_papers = [paper.title for paper in paper_list]
 
         print(f"Searching for papers related to query : <{query}>")
-        results = await self.search_papers_async(query,limit = 6 * max_results,year=year,publicationDate = publicationDate,fields = fields)
+
+        nlimit = max_results * 6
+        results = await self.search_papers_async(
+            query, limit=nlimit, year=year,
+            publicationDate=publicationDate, fields=fields
+            )
+
         if not results or "data" not in results:
             return []
         
@@ -196,7 +236,9 @@ Abstract: {paper['abstract']}
         if need_download:
             paper_candidates = []
             for result in results:
-                if os.path.exists(os.path.join(self.save_file, f"{result['title']}.pdf")) and result['title'] not in readed_papers:
+                if os.path.exists(
+                    os.path.join(self.save_file, f"{result['title']}.pdf")
+                    ) and result['title'] not in readed_papers:
                     paper_candidates.append(result)
                 elif not result['isOpenAccess'] or  not result['openAccessPdf']:
                     continue
@@ -221,16 +263,28 @@ Abstract: {paper['abstract']}
                     article = await self.read_arxiv_from_link_async(pdf_link, f"{result['title']}.pdf")
                 if not article:
                     continue
-            title,abstract,citationCount,year = result["title"],result["abstract"],result["citationCount"],result["year"]
+            title, abstract, citationCount, year = result["title"], result["abstract"], result["citationCount"], result["year"]
             final_results.append(Result(title,abstract,article,citationCount,year))
             if len(final_results) >= max_results:
                 break
         return final_results
 
-    async def search_related_paper_async(self,title,need_citation = True,need_reference = True,rerank_query = None,llm = None,paper_list = []):
+    async def search_related_paper_async(
+        self, title, 
+        need_citation=True, need_reference=True, 
+        rerank_query=None, llm=None, 
+        paper_list=[]
+        ):
+
         print(f"Searching for related papers of paper <{title}>; Citation:{need_citation}; Reference:{need_reference}")
-        fileds = ["title","abstract","citations.title","citations.abstract","citations.citationCount","references.title","references.abstract","references.citationCount","citations.isOpenAccess","citations.openAccessPdf","references.isOpenAccess","references.openAccessPdf","citations.year","references.year"]
-        results = await self.search_papers_async(title,limit = 3,fields=fileds)
+
+        fileds = [
+            "title","abstract","citations.title","citations.abstract","citations.citationCount",
+            "references.title","references.abstract","references.citationCount","citations.isOpenAccess",
+            "citations.openAccessPdf","references.isOpenAccess","references.openAccessPdf","citations.year","references.year"
+            ]
+        results = await self.search_papers_async(title, limit=3, fields=fileds)
+
         related_papers = []
         related_papers_title = []
         if not results or "data" not in results:
@@ -271,7 +325,7 @@ Abstract: {paper['abstract']}
                 break
         
         if len(related_papers) >= 200:
-            related_papers = random.sample(related_papers,200)
+            related_papers = random.sample(related_papers, 200)
 
         if rerank_query and llm:
             rerank_query_embbeding = llm.get_embbeding(rerank_query)
@@ -288,11 +342,10 @@ Abstract: {paper['abstract']}
             if not article:
                 continue
             result = Result(paper[0],paper[1],article,paper[3],paper[4])
+            print(f"Successfully found related papers of paper <{title}>")
             return result
         print(f"Failed to find related papers of paper <{title}>; Citation:{need_citation}; Reference:{need_reference}")
         return None
-
-    
 
     async def read_arxiv_from_link_async(self, pdf_link , filename):
         file_path = os.path.join(self.save_file, filename)
@@ -321,7 +374,6 @@ Abstract: {paper['abstract']}
             return None
         return article_dict
 
-
     async def download_pdf_async(self, pdf_link, save_path):
         if os.path.exists(save_path):
             print(f"The PDF file <{save_path}> already exists.")
@@ -333,11 +385,11 @@ Abstract: {paper['abstract']}
         try:
             with open(save_path, 'wb') as file:
                 file.write(content)
+            print(f"Successfully downloaded the PDF file: {save_path}")
             return True
         except Exception as e:
             print(f"Failed to download the PDF file: {e}, {save_path}")
             return False
-
 
     def read_paper_title_abstract(self,article):
         title = article["title"]
@@ -378,4 +430,3 @@ Introduction: {introduction}
         return paper_content
 
         
-
