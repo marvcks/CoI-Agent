@@ -5,6 +5,11 @@ import aiohttp
 import asyncio
 import numpy as np
 import random
+import logging
+
+api_key = os.environ.get("SEMENTIC_SEARCH_API_KEY")
+
+logger = logging.getLogger(__name__)
 
 def get_content_between_a_b(start_tag, end_tag, text):
     extracted_text = ""
@@ -43,13 +48,13 @@ async def fetch(url):
             async with session.get(url, headers=headers, allow_redirects=True) as response:
                 if response.status == 200:
                     content = await response.read()
-                    print(f"Successfully fetched the URL: {url}")
+                    logger.info(f"Successfully fetched the URL: {url}")
                     return content
                 else:
-                    print(f"Failed to fetch the URL: {url} with status code: {response.status}")
+                    logger.error(f"Failed to fetch the URL: {url} with status code: {response.status}")
                     return None
     except Exception as e:
-        print(f"An unexpected error occurred while fetching the URL: {url}", e)
+        logger.error(f"An unexpected error occurred while fetching the URL: {url}: {str(e)}")
         return None
 
     
@@ -102,7 +107,7 @@ class SementicSearcher:
         self.ban_paper = ban_paper
     
     async def search_papers_async(
-        self, query, limit=5, offset=0, 
+        self, query, limit=10, offset=0, 
         fields=[
             "title", "paperId", "abstract", 
             "isOpenAccess", 'openAccessPdf', 
@@ -134,24 +139,24 @@ class SementicSearcher:
 
         try:
             filtered_query_params = {key: value for key, value in query_params.items() if value is not None}
+
             # Load the API key from the configuration file
-            api_key = os.environ.get("SEMENTIC_SEARCH_API_KEY", None)
             headers = {'x-api-key': api_key} if api_key else None
             response = requests.get(url, params=filtered_query_params, headers=headers)
 
             if response.status_code == 200:
                 response_data = response.json()
-                print(f"Search successful for query: {query}")
+                logger.info(f"Search successful for query: {query}")
                 return response_data
             elif response.status_code == 429:
                 await asyncio.sleep(5)  
-                print(f"Request failed with status code {response.status_code}: begin to retry")
+                logger.warning(f"Request failed with status code {response.status_code}: begin to retry")
                 return await self.search_papers_async(query, limit, offset, fields, publicationDate, minCitationCount, year, publicationTypes, fieldsOfStudy)
             else:
-                print(f"Request failed with status code {response.status_code}: {response.text}")
+                logger.error(f"Request failed with status code {response.status_code}: {response.text}")
                 return None
         except requests.RequestException as e:
-            print(f"An error occurred: {e}")
+            logger.error(f"An error occurred: {e}")
             return None
                 
     def cal_cosine_similarity(self, vec1, vec2):
@@ -214,7 +219,7 @@ class SementicSearcher:
             elif isinstance(paper_list[0], Result):
                 readed_papers = [paper.title for paper in paper_list]
 
-        print(f"Searching for papers related to query : <{query}>")
+        logger.info(f"Searching for papers related to query : <{query}>")
 
         nlimit = max_results * 6
         results = await self.search_papers_async(
@@ -250,7 +255,7 @@ class SementicSearcher:
         if llm and rerank_query:
             rerank_query_embbeding = llm.get_embbeding(rerank_query)
             rerank_query_embbeding = np.array(rerank_query_embbeding)
-            paper_candidates = self.rerank_papers(rerank_query_embbeding, paper_candidates,llm)
+            paper_candidates = self.rerank_papers(rerank_query_embbeding, paper_candidates, llm)
         
         final_results = []
         for result in paper_candidates:
@@ -276,7 +281,7 @@ class SementicSearcher:
         paper_list=[]
         ):
 
-        print(f"Searching for related papers of paper <{title}>; Citation:{need_citation}; Reference:{need_reference}")
+        logger.info(f"Searching for related papers of paper <{title}>; Citation:{need_citation}; Reference:{need_reference}")
 
         fileds = [
             "title","abstract","citations.title","citations.abstract","citations.citationCount",
@@ -288,7 +293,7 @@ class SementicSearcher:
         related_papers = []
         related_papers_title = []
         if not results or "data" not in results:
-            print(f"Failed to find related papers of paper <{title}>; Citation:{need_citation}; Reference:{need_reference}")
+            logger.warning(f"Failed to find related papers of paper <{title}>; Citation:{need_citation}; Reference:{need_reference}")
             return None
         for result in results["data"]:
             if not result:
@@ -307,7 +312,7 @@ class SementicSearcher:
                     else:
                         related_papers.append(citation)
                         related_papers_title.append(citation["title"])
-            if need_reference:
+            if need_reference and result["references"]:
                 for reference in result["references"]:
                     if os.path.exists(os.path.join(self.save_file, f"{reference['title']}.pdf")) and reference["title"] not in paper_list:
                         if "openAccessPdf" not in reference or not reference["openAccessPdf"] or "url" not in reference["openAccessPdf"]:
@@ -335,16 +340,16 @@ class SementicSearcher:
         else:
             related_papers = [[paper["title"],paper["abstract"],paper["openAccessPdf"]["url"],paper["citationCount"],paper['year']] for paper in related_papers]
             related_papers = sorted(related_papers,key = lambda x: x[3],reverse = True)
-        print(f"Found {len(related_papers)} related papers")
+        logger.info(f"Found {len(related_papers)} related papers")
         for paper in related_papers:
             url = paper[2]
             article = await self.read_arxiv_from_link_async(url, f"{paper[0]}.pdf")
             if not article:
                 continue
             result = Result(paper[0],paper[1],article,paper[3],paper[4])
-            print(f"Successfully found related papers of paper <{title}>")
+            logger.info(f"Successfully found related papers of paper <{title}>")
             return result
-        print(f"Failed to find related papers of paper <{title}>; Citation:{need_citation}; Reference:{need_reference}")
+        logger.warning(f"Failed to find related papers of paper <{title}>; Citation:{need_citation}; Reference:{need_reference}")
         return None
 
     async def read_arxiv_from_link_async(self, pdf_link , filename):
@@ -355,40 +360,86 @@ class SementicSearcher:
 
         result = await self.download_pdf_async(pdf_link, file_path)
         if not result:
-            print(f"Failed to download the PDF file: {filename}")
+            logger.error(f"Failed to download the PDF file: {filename}")
             return None
         try:
             article_dict = self.read_arxiv_from_path(file_path)
             return article_dict
         except Exception as e:
-            print(f"Failed to read the article from the PDF file: {e}, {filename}")
+            logger.error(f"Failed to read the article from the PDF file: {e}, {filename}")
             return None
 
     def read_arxiv_from_path(self, pdf_path):
         if not os.path.exists(pdf_path):
-            print(f"The PDF file <{pdf_path}> does not exist.")
+            logger.error(f"The PDF file <{pdf_path}> does not exist.")
             return None
         try:
             article_dict = scipdf.parse_pdf_to_dict(pdf_path)
+            logger.info(f"Successfully parsed the PDF file: {article_dict}")
         except Exception as e:
             return None
         return article_dict
 
-    async def download_pdf_async(self, pdf_link, save_path):
+    # async def download_pdf_async(self, pdf_link, save_path):
+    #     if os.path.exists(save_path):
+    #         logger.info(f"The PDF file <{save_path}> already exists.")
+    #         return True
+    #     content = await fetch(pdf_link)
+    #     if not content:
+    #         logger.error(f"Failed to download the PDF: {save_path}")
+    #         return False
+    #     try:
+    #         with open(save_path, 'wb') as file:
+    #             file.write(content)
+    #         logger.info(f"Successfully downloaded the PDF file: {save_path}")
+    #         return True
+    #     except Exception as e:
+    #         logger.error(f"Failed to download the PDF file: {e}, {save_path}")
+    #         return False
+
+    async def download_pdf_async(self, pdf_link, save_path, user_agent: str = 'requests/2.0.0'):
         if os.path.exists(save_path):
-            print(f"The PDF file <{save_path}> already exists.")
+            logger.info(f"The file <{save_path}> already exists.")
             return True
-        content = await fetch(pdf_link)
-        if not content:
-            print(f"Failed to download the PDF: {save_path}")
-            return False
+
         try:
-            with open(save_path, 'wb') as file:
-                file.write(content)
-            print(f"Successfully downloaded the PDF file: {save_path}")
+            # ensure target directory exists
+            dirpath = os.path.dirname(save_path)
+            if dirpath:
+                os.makedirs(dirpath, exist_ok=True)
+
+            timeout = aiohttp.ClientTimeout(total=120)
+            headers = {
+                'user-agent': user_agent,
+            }
+
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(pdf_link, headers=headers, allow_redirects=True, ssl=False) as response:
+                    # check if the request was successful
+                    response.raise_for_status()
+
+                    content_type = (response.headers.get('content-type') or '').lower()
+
+                    # decide target path by content type
+                    if content_type.startswith('application/pdf'):
+                        target_path = save_path
+                    # elif content_type.startswith('text/html'):
+                    #     root, _ = os.path.splitext(save_path)
+                    #     target_path = root + '.html'
+                    #     logger.info(f"Content-Type is HTML; saving to {target_path}")
+                    else:
+                        logger.error(f"Unsupported Content-Type: {content_type}")
+                        return False
+
+                    # stream the response to file by chunks
+                    with open(target_path, 'wb') as f:
+                        async for chunk in response.content.iter_chunked(8192):
+                            f.write(chunk)
+
+            logger.info(f"Successfully saved file to: {target_path}")
             return True
         except Exception as e:
-            print(f"Failed to download the PDF file: {e}, {save_path}")
+            logger.error(f"Failed to download the file: {e}, {save_path}")
             return False
 
     def read_paper_title_abstract(self,article):

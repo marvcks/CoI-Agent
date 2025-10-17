@@ -12,6 +12,8 @@ from tenacity import (
     wait_fixed,
 )
 
+# 获取logger
+logger = logging.getLogger(__name__)
 
 def get_content_between_a_b(start_tag, end_tag, text):
     extracted_text = ""
@@ -28,7 +30,7 @@ def get_content_between_a_b(start_tag, end_tag, text):
 
 def before_retry_fn(retry_state):
     if retry_state.attempt_number > 1:
-        logging.info(f"Retrying API call. Attempt #{retry_state.attempt_number}, f{retry_state}")
+        logger.info(f"Retrying API call. Attempt #{retry_state.attempt_number}, f{retry_state}")
 
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
@@ -91,7 +93,11 @@ class openai_llm(base_llm):
             http_client = httpx.Client(proxy=proxy_url) if proxy_url else None
             async_http_client = httpx.AsyncClient(proxy=proxy_url) if proxy_url else None
 
-            self.client = OpenAI(api_key=api_key,base_url=base_url,http_client=http_client)
+            self.client = OpenAI(
+                api_key=api_key,
+                base_url=base_url,
+                http_client=http_client
+            )
 
             self.async_client = AsyncOpenAI(api_key=api_key,base_url=base_url,http_client=async_http_client)
     
@@ -116,9 +122,8 @@ class openai_llm(base_llm):
             )
         except Exception as e:
             model = kwargs.get("model", self.model)
-            print(f"get {model} response failed: {e}")
-            print(e)
-            logging.info(e)
+            logger.error(f"get {model} response failed: {e}")
+            logger.error(str(e))
             return
         return response.choices[0].message.content
     
@@ -134,12 +139,27 @@ class openai_llm(base_llm):
         else:
             client = self.client
         try:
-            embbeding = client.embeddings.create(
-                model=os.environ.get("EMBEDDING_MODEL","text-embedding-3-large"),
-                input=text,
-                timeout= 180
-            )
-            embbeding = embbeding.data
+            # 当 text 是 list 且长度超过 10 时，按块处理，每块最多 10 个
+            if isinstance(text, list) and len(text) > 10:
+                all_data = []
+                for i in range(0, len(text), 10):
+                    chunk = text[i:i+10]
+                    chunk_result = client.embeddings.create(
+                        model=os.environ.get("EMBEDDING_MODEL","text-embedding-3-large"),
+                        input=chunk,
+                        timeout= 180
+                    )
+                    # 拼接每次调用返回的 data
+                    emb_data = getattr(chunk_result, "data", [])
+                    if emb_data:
+                        all_data.extend(emb_data)
+                embbeding = all_data
+            else:
+                embbeding = client.embeddings.create(
+                    model=os.environ.get("EMBEDDING_MODEL","text-embedding-3-large"),
+                    input=text,
+                    timeout= 180
+                ).data
             if len(embbeding) == 0:
                 return None
             elif len(embbeding) == 1:
@@ -147,9 +167,8 @@ class openai_llm(base_llm):
             else:
                 return [e.embedding for e in embbeding]
         except Exception as e:
-            print(f"get embbeding failed: {e}")
-            print(e)
-            logging.info(e)
+            logger.error(f"get embbeding failed: {e}")
+            logger.error(str(e))
             return
     
     @retry(wait=wait_fixed(10), stop=stop_after_attempt(10), before=before_retry_fn)
@@ -177,9 +196,8 @@ class openai_llm(base_llm):
             else:
                 return [e.embedding for e in embbeding]
         except Exception as e:
-            print(f"get embbeding failed: {e}")
-            print(e)
-            logging.info(e)
+            logger.error(f"get embbeding failed: {e}")
+            logger.error(str(e))
             return
     
     @retry(wait=wait_fixed(10), stop=stop_after_attempt(10), before=before_retry_fn)
@@ -196,9 +214,8 @@ class openai_llm(base_llm):
         except Exception as e:
             await asyncio.sleep(0.1)
             model = kwargs.get("model", self.model)
-            print(f"get {model} response failed: {e}")
-            print(e)
-            logging.info(e)
+            logger.error(f"get {model} response failed: {e}")
+            logger.error(str(e))
             return
 
         return response.choices[0].message.content
